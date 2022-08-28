@@ -89,8 +89,9 @@ SCREEN_SIZE = vec(500, 500)
 SCREEN = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
 GRAVITY = 2.0
 DAS = 4.0
+CLEAR_LINE_WAIT = 1 / GRAVITY
 # FAST_MULTIPLIER cannot be one
-FAST_MULTIPLIER = 2.0
+FAST_MULTIPLIER = 5.0
 # Adding to the piece state rotates the piece clockwise
 O_PIECE = ([["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."],
             ["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."]], "blue")
@@ -102,10 +103,10 @@ Z_PIECE = ([["....", ".XX.", "..XX", "...."], ["..X.", ".XX.", ".X..", "...."],
             ["....", ".XX.", "..XX", "...."], ["..X.", ".XX.", ".X..", "...."]], "orange")
 S_PIECE = ([["....", "..XX", ".XX.", "...."], [".X..", ".XX.", "..X.", "...."],
             ["....", "..XX", ".XX.", "...."], [".X..", ".XX.", "..X.", "...."]], "aqua")
-J_PIECE = ([["..X.", "..X.", ".XX.", "...."], ["....", ".X..", ".XXX", "...."],
-            [".XX.", ".X..", ".X..", "...."], ["....", "...X", ".XXX", "...."]], "yellow")
-L_PIECE = ([[".X..", ".X..", ".XX.", "...."], ["....", "..X.", "XXX.", "...."],
-            [".XX.", "..X.", "..X.", "...."], ["....", "X...", "XXX.", "...."]], "purple")
+J_PIECE = ([["..X.", "..X.", ".XX.", "...."], ["....", "X...", "XXX.", "...."],
+            [".XX.", "..X.", "..X.", "...."], ["....", "...X", ".XXX", "...."]], "yellow")
+L_PIECE = ([[".X..", ".X..", ".XX.", "...."], ["....", "XXX.", "X...", "...."],
+            [".XX.", "..X.", "..X.", "...."], ["....", "...X", ".XXX", "...."]], "purple")
 PIECES = [O_PIECE, T_PIECE, I_PIECE, Z_PIECE, S_PIECE, J_PIECE, L_PIECE]
 
 ################################
@@ -155,13 +156,25 @@ class dead_pieces:
 
     @staticmethod
     def clear_line(line):
-        for i in reversed(range(0, line)):
+        for i in reversed(range(0, line+1)):
             if i == 0:
                 dead_pieces.data[i] = [""] * 10
                 continue
             for j in range(10):
                 dead_pieces.data[i][j] = dead_pieces.data[i - 1][j]
 
+    @staticmethod
+    def will_clear_lines():
+        for i in range(20):
+            full = True
+            for j in range(10):      
+                if dead_pieces.data[i][j] == "":
+                    full = False
+                    break
+            if full:
+                return True
+        return False
+    
     @staticmethod
     def clear_lines():
         for i in range(20):
@@ -172,6 +185,7 @@ class dead_pieces:
                     break
             if full:
                 dead_pieces.clear_line(i)
+    
 
     @staticmethod
     def colliding(pos, state):
@@ -233,7 +247,7 @@ class game:
             if game.can_move(game.player_piece.pos.add(vec(-1, 0))
               ,game.player_piece.get_state()):
                 game.player_piece.pos.x += -1
-                game.das_ts = time.time() + 1.0 / DAS    
+                game.das_ts = time.time() + 1.0 / DAS
         elif keys[pygame.K_RIGHT] and (time.time() > game.das_ts):
             if game.can_move(game.player_piece.pos.add(vec(1, 0))
               ,game.player_piece.get_state()):
@@ -243,19 +257,25 @@ class game:
     @staticmethod
     def frame():
         drawing_manager.draw_bg()
-        game.player_piece.draw()
         dead_pieces.draw()
+        if dead_pieces.will_clear_lines():
+            pygame.display.flip()
+            time.sleep(CLEAR_LINE_WAIT)
+            dead_pieces.clear_lines()
+            return
         game.player_input()
+        game.player_piece.draw()
         if time.time() > (game.fps_ts - 
                           (((FAST_MULTIPLIER-1) / (FAST_MULTIPLIER*GRAVITY) if game.fast else 0))):
             if game.can_move(game.player_piece.pos.add(vec(0, 1))
                               ,game.player_piece.get_state()):
                 game.player_piece.pos.y += 1
+                game.player_piece.draw()
             else:
                 dead_pieces.add_piece(game.player_piece.pos.add(vec(0, 1))
                                      ,game.player_piece.get_state()
                                      ,game.player_piece.color)
-                game.player_piece = piece(random.choice(PIECES))
+                game.player_piece = piece(L_PIECE)
             game.fps_ts = time.time() + 1 / GRAVITY
 
     @staticmethod
