@@ -1,9 +1,11 @@
 import pygame
 import random
+import time
 
 ################################
 # UTILITY CLASSES
 ################################
+
 
 # Makes gfx calc easier
 class vec:
@@ -16,9 +18,10 @@ class vec:
 
     def sub(self, v):
         return vec(self.x - v.x, self.y - v.y)
-    
+
     def mult(self, scalar):
         return vec(self.x * scalar, self.y * scalar)
+
 
 class drawing_manager:
     @staticmethod
@@ -40,74 +43,74 @@ class drawing_manager:
         # Just in case the color is not valid it will return white so you know
         # there is something wrong with the piece
         return (255, 255, 255)
-    
+
     @staticmethod
     def draw_piece(pos, piece_state, color):
         for i in range(4):
             for j in range(4):
                 if piece_state[i][j] == "X":
-                    drawing_manager.draw_box(vec(j, i).add(pos).mult(BOX_SIZE).add(BOARD_POS)
-                                            ,drawing_manager.interpret_color(color))
+                    drawing_manager.draw_box(
+                        vec(j, i).add(pos).mult(BOX_SIZE).add(BOARD_POS),
+                        drawing_manager.interpret_color(color))
 
     def draw_dead_pieces(pieces):
         for i in range(20):
             for j in range(10):
                 if pieces[i][j] != "":
-                    drawing_manager.draw_box(vec(j, i).mult(BOX_SIZE).add(BOARD_POS)
-                                            ,drawing_manager.interpret_color(pieces[i][j]))
-    
+                    drawing_manager.draw_box(
+                        vec(j, i).mult(BOX_SIZE).add(BOARD_POS),
+                        drawing_manager.interpret_color(pieces[i][j]))
+
     @staticmethod
     def draw_box(pos, color):
-        pygame.draw.rect(screen, color, pygame.Rect(pos.x, pos.y, BOX_SIZE, BOX_SIZE))
+        pygame.draw.rect(SCREEN, color,
+                         pygame.Rect(pos.x, pos.y, BOX_SIZE, BOX_SIZE))
+
     @staticmethod
     def draw_bg():
-        pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(0, 0, SCREEN_SIZE.x, SCREEN_SIZE.y))
-        #                                     Not sure why I have to have this BOX_SIZE |
-        #                                                                               V
-        pygame.draw.rect(screen, (0, 0, 0), pygame.Rect(BOARD_POS.x, BOARD_POS.y + BOX_SIZE, 10*BOX_SIZE, 20*BOX_SIZE))
+        pygame.draw.rect(SCREEN, (255, 255, 255),
+                         pygame.Rect(0, 0, SCREEN_SIZE.x, SCREEN_SIZE.y))
+        #                 Not sure why I have to have this BOX_SIZE |
+        #                                                           V
+        pygame.draw.rect(
+            SCREEN, (0, 0, 0),
+            pygame.Rect(BOARD_POS.x, BOARD_POS.y + BOX_SIZE, 10 * BOX_SIZE,
+                        20 * BOX_SIZE))
+
 
 ################################
 # CONSTANTS
 ################################
-        
+
 BOX_SIZE = 15
 BOARD_POS = vec(150, 50)
 SCREEN_SIZE = vec(500, 500)
-screen = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
+SCREEN = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
+FPS = 2.0
+DAS = 4.0
+# FAST_MULTIPLIER cannot be one
+FAST_MULTIPLIER = 2.0
 # Adding to the piece state rotates the piece clockwise
-O_PIECE = ([["....", ".XX.", ".XX.", "...."],
-            ["....", ".XX.", ".XX.", "...."],
-            ["....", ".XX.", ".XX.", "...."],
-            ["....", ".XX.", ".XX.", "...."]], "blue")
-T_PIECE = ([["....", ".XXX", "..X.", "...."],
-            ["..X.", ".XX.", "..X.", "...."],
-            ["..X.", ".XXX", "....", "...."],
-            ["..X.", "..XX", "..X.", "...."]], "green")
-I_PIECE = ([["..X.", "..X.", "..X.", "..X."],
-            ["....", "....", "XXXX", "...."],
-            [".X..", ".X..", ".X..", ".X.."],
-            ["....", "XXXX", "....", "...."]], "red")
-Z_PIECE = ([["....", ".XX.", "..XX", "...."],
-            ["..X.", ".XX.", ".X..", "...."],
-            ["....", ".XX.", "..XX", "...."],
-            ["..X.", ".XX.", ".X..", "...."]], "orange")
-S_PIECE = ([["....", "..XX", ".XX.", "...."],
-            [".X..", ".XX.", "..X.", "...."],
-            ["....", "..XX", ".XX.", "...."],
-            [".X..", ".XX.", "..X.", "...."]], "aqua")
-J_PIECE = ([["..X.", "..X.", ".XX.", "...."],
-            ["....", ".X..", ".XXX", "...."],
-            [".XX.", ".X..", ".X..", "...."],
-            ["....", "...X", ".XXX", "...."]], "yellow")
-L_PIECE = ([[".X..", ".X..", ".XX.", "...."],
-            ["....", "..X.", "XXX.", "...."],
-            [".XX.", "..X.", "..X.", "...."],
-            ["....", "X...", "XXX.", "...."]], "purple")
+O_PIECE = ([["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."],
+            ["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."]], "blue")
+T_PIECE = ([["....", ".XXX", "..X.", "...."], ["..X.", ".XX.", "..X.", "...."],
+            ["..X.", ".XXX", "....", "...."], ["..X.", "..XX", "..X.", "...."]], "green")
+I_PIECE = ([["..X.", "..X.", "..X.", "..X."], ["....", "....", "XXXX", "...."],
+            [".X..", ".X..", ".X..", ".X.."], ["....", "XXXX", "....", "...."]], "red")
+Z_PIECE = ([["....", ".XX.", "..XX", "...."], ["..X.", ".XX.", ".X..", "...."],
+            ["....", ".XX.", "..XX", "...."], ["..X.", ".XX.", ".X..", "...."]], "orange")
+S_PIECE = ([["....", "..XX", ".XX.", "...."], [".X..", ".XX.", "..X.", "...."],
+            ["....", "..XX", ".XX.", "...."], [".X..", ".XX.", "..X.", "...."]], "aqua")
+J_PIECE = ([["..X.", "..X.", ".XX.", "...."], ["....", ".X..", ".XXX", "...."],
+            [".XX.", ".X..", ".X..", "...."], ["....", "...X", ".XXX", "...."]], "yellow")
+L_PIECE = ([[".X..", ".X..", ".XX.", "...."], ["....", "..X.", "XXX.", "...."],
+            [".XX.", "..X.", "..X.", "...."], ["....", "X...", "XXX.", "...."]], "purple")
 PIECES = [O_PIECE, T_PIECE, I_PIECE, Z_PIECE, S_PIECE, J_PIECE, L_PIECE]
 
 ################################
 # PIECE CLASSES
 ################################
+
 
 class piece:
     def __init__(self, piece_info):
@@ -119,10 +122,13 @@ class piece:
         self.color = piece_info[1]
 
     def draw(self):
-        drawing_manager.draw_piece(self.pos, self.states[self.current_state], self.color)
+        drawing_manager.draw_piece(self.pos, self.states[self.current_state],
+                                   self.color)
+
 
 class dead_pieces:
     data = []
+    fast = False
 
     @staticmethod
     def init():
@@ -138,18 +144,18 @@ class dead_pieces:
     @staticmethod
     def add_piece(pos, state, color):
         for i in range(4):
-            for j in  range(4):
+            for j in range(4):
                 if state[i][j] == "X":
-                    dead_pieces.data[pos.x+j][pos.y+i] = color
-    
+                    dead_pieces.data[pos.x + j][pos.y + i] = color
+
     @staticmethod
     def clear_line(line):
         for i in reversed(range(0, line)):
             if i == 0:
-                dead_pieces.data[i] = [""]*10
+                dead_pieces.data[i] = [""] * 10
                 continue
             for j in range(10):
-                dead_pieces.data[i][j] = dead_pieces.data[i-1][j]
+                dead_pieces.data[i][j] = dead_pieces.data[i - 1][j]
 
     @staticmethod
     def clear_lines():
@@ -162,25 +168,47 @@ class dead_pieces:
             if full:
                 dead_pieces.clear_line(i)
 
+
 class game:
     player_piece = None
-    
+    fps_ts = time.time() + 1 / FPS
+    das_ts = 0
+
+    @staticmethod
+    def player_input():
+        keys = pygame.key.get_pressed()
+        game.fast = keys[pygame.K_DOWN]
+        if keys[pygame.K_LEFT] and (time.time() > game.das_ts):
+            game.player_piece.pos.x += -1
+            game.das_ts = time.time() + 1.0 / DAS
+        elif keys[pygame.K_RIGHT] and (time.time() > game.das_ts):
+            game.player_piece.pos.x += 1
+            game.das_ts = time.time() + 1.0 / DAS
+
     @staticmethod
     def frame():
         drawing_manager.draw_bg()
         game.player_piece.draw()
         dead_pieces.draw()
-    
+        game.player_input()
+        if time.time() > (game.fps_ts - 
+                          (((FAST_MULTIPLIER-1) / (FAST_MULTIPLIER*FPS) if game.fast else 0))):
+            game.player_piece.pos.y += 1
+            game.fps_ts = time.time() + 1 / FPS
+
     @staticmethod
     def start():
         pygame.init()
         game.player_piece = piece(random.choice(PIECES))
         dead_pieces.init()
-        while  True:
+        running = True
+        while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    break
+                    running = False
             game.frame()
+            pygame.display.flip()
         pygame.quit()
+
 
 game.start()
