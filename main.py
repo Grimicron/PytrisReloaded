@@ -1,6 +1,7 @@
 import pygame
 import random
 import time
+import math
 
 ################################
 # UTILITY CLASSES
@@ -42,6 +43,16 @@ class drawing_manager:
     def draw_box(pos, color):
         pygame.draw.rect(SCREEN, color,
                          pygame.Rect(pos.x, pos.y, BOX_SIZE, BOX_SIZE))
+        pygame.draw.rect(SCREEN, tuple(min(i+BOX_HIGHLIGHT_AMOUNT, 255) for i in color),
+                         pygame.Rect(pos.x, pos.y, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION), BOX_SIZE))
+        pygame.draw.rect(SCREEN, tuple(min(i+BOX_HIGHLIGHT_AMOUNT, 255) for i in color),
+                         pygame.Rect(pos.x, pos.y, BOX_SIZE, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)))
+        pygame.draw.rect(SCREEN, tuple(max(i+BOX_SHADOW_AMOUNT, 0) for i in color),
+                         pygame.Rect(pos.x + BOX_SIZE - math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION), pos.y
+                                    ,math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION), BOX_SIZE))
+        pygame.draw.rect(SCREEN, tuple(max(i+BOX_SHADOW_AMOUNT, 0) for i in color),
+                         pygame.Rect(pos.x, pos.y + BOX_SIZE - math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)
+                                    ,BOX_SIZE, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)))
 
     @staticmethod
     def draw_bg():
@@ -72,6 +83,9 @@ COLORS = {
     "purple": (153, 0, 255),
     "yellow": (255, 255, 0)
 }
+BOX_LIGHT_PROPORTION = 0.15
+BOX_HIGHLIGHT_AMOUNT = 200
+BOX_SHADOW_AMOUNT = -80
 # FAST_MULTIPLIER cannot be one
 FAST_MULTIPLIER = 5.0
 # Adding to the piece state rotates the piece clockwise
@@ -86,7 +100,7 @@ Z_PIECE = ([["....", ".XX.", "..XX", "...."], ["..X.", ".XX.", ".X..", "...."],
 S_PIECE = ([["....", "..XX", ".XX.", "...."], [".X..", ".XX.", "..X.", "...."],
             ["....", "..XX", ".XX.", "...."], [".X..", ".XX.", "..X.", "...."]], "aqua")
 J_PIECE = ([["..X.", "..X.", ".XX.", "...."], ["....", "X...", "XXX.", "...."],
-            [".XX.", "..X.", "..X.", "...."], ["....", "...X", ".XXX", "...."]], "yellow")
+            [".XX.", ".X..", ".X..", "...."], ["....", ".XXX", "...X", "...."]], "yellow")
 L_PIECE = ([[".X..", ".X..", ".XX.", "...."], ["....", "XXX.", "X...", "...."],
             [".XX.", "..X.", "..X.", "...."], ["....", "...X", ".XXX", "...."]], "purple")
 PIECES = [O_PIECE, T_PIECE, I_PIECE, Z_PIECE, S_PIECE, J_PIECE, L_PIECE]
@@ -244,6 +258,7 @@ class game:
                                          ,game.player_piece.get_state()
                                          ,game.player_piece.color)
                     game.player_piece = piece(random.choice(PIECES))
+                    pygame.mixer.Sound('sfx/piece_settle.wav').play()
                 else:
                     game.about_to_die = True
             game.gravity_ts = time.time() + 1 / GRAVITY
