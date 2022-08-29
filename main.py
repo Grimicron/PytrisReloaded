@@ -6,7 +6,6 @@ import time
 # UTILITY CLASSES
 ################################
 
-
 # Makes gfx calc easier
 class vec:
     def __init__(self, px, py):
@@ -25,42 +24,19 @@ class vec:
 
 class drawing_manager:
     @staticmethod
-    def interpret_color(color):
-        if color == "blue":
-            return (0, 0, 255)
-        elif color == "aqua":
-            return (0, 255, 255)
-        elif color == "red":
-            return (255, 0, 0)
-        elif color == "green":
-            return (0, 255, 0)
-        elif color == "yellow":
-            return (255, 255, 0)
-        elif color == "purple":
-            return (153, 0, 255)
-        elif color == "orange":
-            return (255, 153, 0)
-        # Just in case the color is not valid it will return white so you know
-        # there is something wrong with the piece
-        return (255, 255, 255)
-
-    @staticmethod
     def draw_piece(pos, piece_state, color):
         for i in range(4):
             for j in range(4):
                 if piece_state[i][j] == "X":
                     drawing_manager.draw_box(
-                        vec(j, i).add(pos).mult(BOX_SIZE).add(BOARD_POS),
-                        drawing_manager.interpret_color(color))
+                        vec(j, i).add(pos).mult(BOX_SIZE).add(BOARD_POS), COLORS[color])
 
     def draw_dead_pieces(pieces):
         for i in range(20):
             for j in range(10):
                 if pieces[i][j] != "":
                     drawing_manager.draw_box(
-                        # Not sure about why I have to have the +1
-                        vec(j, i+1).mult(BOX_SIZE).add(BOARD_POS),
-                        drawing_manager.interpret_color(pieces[i][j]))
+                        vec(j, i).mult(BOX_SIZE).add(BOARD_POS), COLORS[pieces[i][j]])
 
     @staticmethod
     def draw_box(pos, color):
@@ -71,13 +47,9 @@ class drawing_manager:
     def draw_bg():
         pygame.draw.rect(SCREEN, (255, 255, 255),
                          pygame.Rect(0, 0, SCREEN_SIZE.x, SCREEN_SIZE.y))
-        #                 Not sure why I have to have this BOX_SIZE |
-        #                                                           V
-        pygame.draw.rect(
-            SCREEN, (0, 0, 0),
-            pygame.Rect(BOARD_POS.x, BOARD_POS.y + BOX_SIZE, 10 * BOX_SIZE,
-                        20 * BOX_SIZE))
-
+        pygame.draw.rect(SCREEN, (0, 0, 0),
+                         pygame.Rect(BOARD_POS.x, BOARD_POS.y, 10 * BOX_SIZE,
+                         20 * BOX_SIZE))
 
 ################################
 # CONSTANTS
@@ -88,8 +60,18 @@ BOARD_POS = vec(150, 50)
 SCREEN_SIZE = vec(500, 500)
 SCREEN = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
 GRAVITY = 2.0
-DAS = 4.0
+PRE_DAS_DELAY = 0.3
+DAS = 10.0
 CLEAR_LINE_WAIT = 1 / GRAVITY
+COLORS = {
+    "blue" : (0, 0, 255),
+    "green" : (0, 255, 0),
+    "red" : (255, 0, 0),
+    "orange": (255, 153, 0),
+    "aqua": (0, 255, 255),
+    "purple": (153, 0, 255),
+    "yellow": (255, 255, 0)
+}
 # FAST_MULTIPLIER cannot be one
 FAST_MULTIPLIER = 5.0
 # Adding to the piece state rotates the piece clockwise
@@ -113,13 +95,12 @@ PIECES = [O_PIECE, T_PIECE, I_PIECE, Z_PIECE, S_PIECE, J_PIECE, L_PIECE]
 # GAME CLASSES
 ################################
 
-
 class piece:
     def __init__(self, piece_info):
         self.states = piece_info[0]
         # Some pieces begin at the first row and other at the second
         # so with this if we ensure that the pieces begin at the very top
-        self.pos = vec(3, 1 if "X" in self.states[0][0] else 0)
+        self.pos = vec(3, 0 if "X" in self.states[0][0] else -1)
         self.current_state = 0
         self.color = piece_info[1]
 
@@ -162,18 +143,6 @@ class dead_pieces:
                 continue
             for j in range(10):
                 dead_pieces.data[i][j] = dead_pieces.data[i - 1][j]
-
-    @staticmethod
-    def will_clear_lines():
-        for i in range(20):
-            full = True
-            for j in range(10):      
-                if dead_pieces.data[i][j] == "":
-                    full = False
-                    break
-            if full:
-                return True
-        return False
     
     @staticmethod
     def clear_lines():
@@ -185,7 +154,6 @@ class dead_pieces:
                     break
             if full:
                 dead_pieces.clear_line(i)
-    
 
     @staticmethod
     def colliding(pos, state):
@@ -204,8 +172,11 @@ class dead_pieces:
 
 class game:
     player_piece = None
-    fps_ts = 0
+    gravity_ts = 0
     das_ts = 0
+    about_to_die = False
+    moving = 0
+    running = True
 
     @staticmethod
     def can_move(pos, state):
@@ -213,13 +184,10 @@ class game:
             for j in range(4):
                 if state[i][j] == "X":
                     if pos.x+j < 0:
-                        print("left")
                         return False
                     if pos.x+j >= 10:
-                        print("right")
                         return False
                     if pos.y+i >= 20:
-                        print("floor")
                         return False
         if dead_pieces.colliding(pos, state):
             return False
@@ -240,15 +208,16 @@ class game:
             
     
     @staticmethod
-    def player_input():
-        keys = pygame.key.get_pressed()
-        game.fast = keys[pygame.K_DOWN]
-        if keys[pygame.K_LEFT] and (time.time() > game.das_ts):
+    def das():
+        # We do the down input here because it's convenient
+        # since we call this every frame
+        game.fast = pygame.key.get_pressed()[pygame.K_DOWN]
+        if (game.moving == -1) and (time.time() > game.das_ts):
             if game.can_move(game.player_piece.pos.add(vec(-1, 0))
               ,game.player_piece.get_state()):
                 game.player_piece.pos.x += -1
                 game.das_ts = time.time() + 1.0 / DAS
-        elif keys[pygame.K_RIGHT] and (time.time() > game.das_ts):
+        elif (game.moving == 1) and (time.time() > game.das_ts):
             if game.can_move(game.player_piece.pos.add(vec(1, 0))
               ,game.player_piece.get_state()):
                 game.player_piece.pos.x += 1
@@ -258,46 +227,61 @@ class game:
     def frame():
         drawing_manager.draw_bg()
         dead_pieces.draw()
-        if dead_pieces.will_clear_lines():
-            pygame.display.flip()
-            time.sleep(CLEAR_LINE_WAIT)
-            dead_pieces.clear_lines()
-            return
-        game.player_input()
+        dead_pieces.clear_lines()
+        game.das()
         game.player_piece.draw()
-        if time.time() > (game.fps_ts - 
-                          (((FAST_MULTIPLIER-1) / (FAST_MULTIPLIER*GRAVITY) if game.fast else 0))):
+        if time.time() > (game.gravity_ts - 
+                         (((FAST_MULTIPLIER-1) / (FAST_MULTIPLIER*GRAVITY)
+                         if game.fast else 0))):
             if game.can_move(game.player_piece.pos.add(vec(0, 1))
                               ,game.player_piece.get_state()):
                 game.player_piece.pos.y += 1
-                game.player_piece.draw()
+                game.about_to_die = False
             else:
-                dead_pieces.add_piece(game.player_piece.pos.add(vec(0, 1))
-                                     ,game.player_piece.get_state()
-                                     ,game.player_piece.color)
-                game.player_piece = piece(L_PIECE)
-            game.fps_ts = time.time() + 1 / GRAVITY
+                if game.about_to_die:
+                    game.about_to_die = False
+                    dead_pieces.add_piece(game.player_piece.pos.add(vec(0, 1))
+                                         ,game.player_piece.get_state()
+                                         ,game.player_piece.color)
+                    game.player_piece = piece(random.choice(PIECES))
+                else:
+                    game.about_to_die = True
+            game.gravity_ts = time.time() + 1 / GRAVITY
 
     @staticmethod
-    def start():
-        pygame.init()
-        game.player_piece = piece(random.choice(PIECES))
-        dead_pieces.init()
-        game.fps_ts = time.time() + 1 / GRAVITY
-        running = True
-        while running:
-            for event in pygame.event.get():
+    def event_handler():
+        for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
-                # Rotate piece clockwise/counterclockwise
-                # done here because this is the only place we can handle
-                # events and we want the rotate piece to be
-                # a key down event so it only happens once per press
+                    game.running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         game.try_rotate(True)
                     elif event.key == pygame.K_LCTRL:
                         game.try_rotate(False)
+                    elif event.key == pygame.K_RIGHT:
+                        if game.can_move(game.player_piece.pos.add(vec(1, 0))
+                          ,game.player_piece.get_state()):
+                            game.player_piece.pos.x += 1
+                            game.moving = 1
+                            game.das_ts = time.time() + PRE_DAS_DELAY
+                    elif event.key == pygame.K_LEFT:
+                        if game.can_move(game.player_piece.pos.add(vec(-1, 0))
+                          ,game.player_piece.get_state()):
+                            game.player_piece.pos.x += -1
+                            game.moving = -1
+                            game.das_ts = time.time() + PRE_DAS_DELAY
+                elif event.type == pygame.KEYUP:
+                    if event.key in (pygame.K_RIGHT, pygame.K_LEFT):
+                        game.moving = 0
+    
+    @staticmethod
+    def start():
+        pygame.init()
+        game.player_piece = piece(random.choice(PIECES))
+        dead_pieces.init()
+        game.gravity_ts = time.time() + 1 / GRAVITY
+        while game.running:
+            game.event_handler()
             game.frame()
             pygame.display.flip()
         pygame.quit()

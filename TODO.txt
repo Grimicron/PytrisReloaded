@@ -1,2 +1,3 @@
-Time before lockup
 Better piece graphics
+UI
+Levels
