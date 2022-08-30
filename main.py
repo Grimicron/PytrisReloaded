@@ -45,14 +45,14 @@ class drawing_manager:
                          pygame.Rect(pos.x, pos.y, BOX_SIZE, BOX_SIZE))
         pygame.draw.rect(SCREEN, tuple(min(i+BOX_HIGHLIGHT_AMOUNT, 255) for i in color),
                          pygame.Rect(pos.x, pos.y, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION), BOX_SIZE))
-        pygame.draw.rect(SCREEN, tuple(min(i+BOX_HIGHLIGHT_AMOUNT, 255) for i in color),
-                         pygame.Rect(pos.x, pos.y, BOX_SIZE, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)))
         pygame.draw.rect(SCREEN, tuple(max(i+BOX_SHADOW_AMOUNT, 0) for i in color),
                          pygame.Rect(pos.x + BOX_SIZE - math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION), pos.y
                                     ,math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION), BOX_SIZE))
         pygame.draw.rect(SCREEN, tuple(max(i+BOX_SHADOW_AMOUNT, 0) for i in color),
                          pygame.Rect(pos.x, pos.y + BOX_SIZE - math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)
                                     ,BOX_SIZE, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)))
+        pygame.draw.rect(SCREEN, tuple(min(i+BOX_HIGHLIGHT_AMOUNT, 255) for i in color),
+                         pygame.Rect(pos.x, pos.y, BOX_SIZE, math.floor(BOX_SIZE*BOX_LIGHT_PROPORTION)))
 
     @staticmethod
     def draw_bg():
@@ -61,6 +61,28 @@ class drawing_manager:
         pygame.draw.rect(SCREEN, (0, 0, 0),
                          pygame.Rect(BOARD_POS.x, BOARD_POS.y, 10 * BOX_SIZE,
                          20 * BOX_SIZE))
+    @staticmethod
+    def draw_text(pos, size, color, text):
+        font = pygame.font.Font("Pixel_NES.otf", size)
+        text = font.render(text, True, color)
+        text_rect = text.get_rect()
+        text_rect.center = (pos.x, pos.y)
+        SCREEN.blit(text, text_rect)
+    
+    @staticmethod
+    def draw_gameover():
+        pygame.draw.rect(SCREEN, (0, 0, 0),
+                         pygame.Rect(0, 0, SCREEN_SIZE.x, SCREEN_SIZE.y))
+        for i in range(len(GAME_SCREEN)):
+            for j in range(len(GAME_SCREEN[i])):
+                if GAME_SCREEN[i][j] == 'X':
+                    drawing_manager.draw_box(vec(j, i).mult(BOX_SIZE).add(GAME_OFFSET)
+                                            ,(200, 200, 200))
+        for i in range(len(OVER_SCREEN)):
+            for j in range(len(OVER_SCREEN[i])):
+                if OVER_SCREEN[i][j] == 'X':
+                    drawing_manager.draw_box(vec(j, i).mult(BOX_SIZE).add(OVER_OFFSET)
+                                            ,(200, 200, 200))
 
 ################################
 # CONSTANTS
@@ -73,6 +95,7 @@ SCREEN = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
 GRAVITY = 2.0
 PRE_DAS_DELAY = 0.3
 DAS = 10.0
+LEVEL_THRESHHOLD = 1
 CLEAR_LINE_WAIT = 1 / GRAVITY
 COLORS = {
     "blue" : (0, 0, 255),
@@ -87,7 +110,7 @@ BOX_LIGHT_PROPORTION = 0.15
 BOX_HIGHLIGHT_AMOUNT = 200
 BOX_SHADOW_AMOUNT = -80
 # FAST_MULTIPLIER cannot be one
-FAST_MULTIPLIER = 5.0
+FAST_MULTIPLIER = 3.0
 # Adding to the piece state rotates the piece clockwise
 O_PIECE = ([["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."],
             ["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."]], "blue")
@@ -104,6 +127,18 @@ J_PIECE = ([["..X.", "..X.", ".XX.", "...."], ["....", "X...", "XXX.", "...."],
 L_PIECE = ([[".X..", ".X..", ".XX.", "...."], ["....", "XXX.", "X...", "...."],
             [".XX.", "..X.", "..X.", "...."], ["....", "...X", ".XXX", "...."]], "purple")
 PIECES = [O_PIECE, T_PIECE, I_PIECE, Z_PIECE, S_PIECE, J_PIECE, L_PIECE]
+GAME_OFFSET = vec((500 - 23 * BOX_SIZE) // 2, 100)
+GAME_SCREEN = [".XXX...XXX..X...X.XXXXX",
+               "X.....X...X.XX.XX.X....",
+               "X.XXX.XXXXX.X.X.X.XXXXX",
+               "X...X.X...X.X...X.X....",
+               ".XXX..X...X.X...X.XXXXX"]
+OVER_OFFSET = GAME_OFFSET.add(vec(0, BOX_SIZE*6))
+OVER_SCREEN = [".XXX..X...X.XXXXX.XXXX.",
+               "X...X.X...X.X.....X...X",
+               "X...X..X.X..XXXXX.XXXX.",
+               "X...X..X.X..X.....X..X.",
+               ".XXX....X...XXXXX.X...X"]
 
 ################################
 # GAME CLASSES
@@ -160,6 +195,7 @@ class dead_pieces:
     
     @staticmethod
     def clear_lines():
+        amount = 0
         for i in range(20):
             full = True
             for j in range(10):      
@@ -167,7 +203,9 @@ class dead_pieces:
                     full = False
                     break
             if full:
+                amount += 1
                 dead_pieces.clear_line(i)
+        return amount
 
     @staticmethod
     def colliding(pos, state):
@@ -188,9 +226,12 @@ class game:
     player_piece = None
     gravity_ts = 0
     das_ts = 0
-    about_to_die = False
+    about_to_settle = False
     moving = 0
     running = True
+    dead = False
+    lines = 0
+    level = 0
 
     @staticmethod
     def can_move(pos, state):
@@ -238,10 +279,28 @@ class game:
                 game.das_ts = time.time() + 1.0 / DAS
 
     @staticmethod
+    def try_spawn_piece():
+        for i in range(4):
+            if not(dead_pieces.colliding(game.player_piece.pos, game.player_piece.get_state(i))):
+                dead_pieces.add_piece(game.player_piece.pos.add(vec(0, 1))
+                                     ,game.player_piece.get_state(i)
+                                     ,game.player_piece.color)
+                return True
+        return False
+    
+    @staticmethod
     def frame():
+        if game.dead:
+            drawing_manager.draw_gameover()
+            return
+        # drawing_manager.draw_text(vec(400, 250), 20, (0, 0, 0), f"LEVEL\n{game.level}")
         drawing_manager.draw_bg()
         dead_pieces.draw()
-        dead_pieces.clear_lines()
+        game.lines += dead_pieces.clear_lines()
+        if game.lines//LEVEL_THRESHHOLD > game.level:
+            game.level += 1
+            global GRAVITY
+            GRAVITY += 1
         game.das()
         game.player_piece.draw()
         if time.time() > (game.gravity_ts - 
@@ -250,17 +309,16 @@ class game:
             if game.can_move(game.player_piece.pos.add(vec(0, 1))
                               ,game.player_piece.get_state()):
                 game.player_piece.pos.y += 1
-                game.about_to_die = False
+                game.about_to_settle = False
             else:
-                if game.about_to_die:
-                    game.about_to_die = False
-                    dead_pieces.add_piece(game.player_piece.pos.add(vec(0, 1))
-                                         ,game.player_piece.get_state()
-                                         ,game.player_piece.color)
-                    game.player_piece = piece(random.choice(PIECES))
-                    pygame.mixer.Sound('sfx/piece_settle.wav').play()
+                if game.about_to_settle:
+                    game.about_to_settle = False
+                    if game.try_spawn_piece():
+                        game.player_piece = piece(random.choice(PIECES))
+                    else:
+                        game.dead = True
                 else:
-                    game.about_to_die = True
+                    game.about_to_settle = True
             game.gravity_ts = time.time() + 1 / GRAVITY
 
     @staticmethod
@@ -292,6 +350,7 @@ class game:
     @staticmethod
     def start():
         pygame.init()
+        pygame.display.set_caption("Pytris Reloaded")
         game.player_piece = piece(random.choice(PIECES))
         dead_pieces.init()
         game.gravity_ts = time.time() + 1 / GRAVITY
