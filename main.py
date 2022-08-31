@@ -62,12 +62,12 @@ class drawing_manager:
                          pygame.Rect(BOARD_POS.x, BOARD_POS.y, 10 * BOX_SIZE,
                          20 * BOX_SIZE))
     @staticmethod
-    def draw_text(pos, size, color, text):
-        font = pygame.font.Font("Pixel_NES.otf", size)
-        text = font.render(text, True, color)
-        text_rect = text.get_rect()
-        text_rect.center = (pos.x, pos.y)
-        SCREEN.blit(text, text_rect)
+    def draw_text(pos, size, text):
+        font = pygame.font.Font('pixel.ttf', size)
+        text = font.render(text, True, (0, 0, 0), (255, 255, 255))
+        textRect = text.get_rect()
+        textRect.center = (pos.x, pos.y)
+        SCREEN.blit(text, textRect)
     
     @staticmethod
     def draw_gameover():
@@ -95,8 +95,15 @@ SCREEN = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
 GRAVITY = 2.0
 PRE_DAS_DELAY = 0.3
 DAS = 10.0
-LEVEL_THRESHHOLD = 1
+LEVEL_THRESHHOLD = 10
 CLEAR_LINE_WAIT = 1 / GRAVITY
+LINES_REWARD = {
+    0: 0,
+    1: 1,
+    2: 3,
+    3: 7,
+    4: 20
+}
 COLORS = {
     "blue" : (0, 0, 255),
     "green" : (0, 255, 0),
@@ -232,6 +239,7 @@ class game:
     dead = False
     lines = 0
     level = 0
+    score = 0
 
     @staticmethod
     def can_move(pos, state):
@@ -280,23 +288,26 @@ class game:
 
     @staticmethod
     def try_spawn_piece():
+        p = piece(random.choice(PIECES))
         for i in range(4):
-            if not(dead_pieces.colliding(game.player_piece.pos, game.player_piece.get_state(i))):
+            if not(dead_pieces.colliding(p.pos, p.get_state(i))):
                 dead_pieces.add_piece(game.player_piece.pos.add(vec(0, 1))
                                      ,game.player_piece.get_state(i)
                                      ,game.player_piece.color)
-                return True
-        return False
+                game.score += (game.level + 1) * 10
+                return (True, p)
+        return (False, None)
     
     @staticmethod
     def frame():
         if game.dead:
             drawing_manager.draw_gameover()
             return
-        # drawing_manager.draw_text(vec(400, 250), 20, (0, 0, 0), f"LEVEL\n{game.level}")
         drawing_manager.draw_bg()
         dead_pieces.draw()
-        game.lines += dead_pieces.clear_lines()
+        lines_removed = dead_pieces.clear_lines()
+        game.lines += lines_removed
+        game.score += (game.level + 1) * 100 * LINES_REWARD[lines_removed]
         if game.lines//LEVEL_THRESHHOLD > game.level:
             game.level += 1
             global GRAVITY
@@ -313,13 +324,20 @@ class game:
             else:
                 if game.about_to_settle:
                     game.about_to_settle = False
-                    if game.try_spawn_piece():
-                        game.player_piece = piece(random.choice(PIECES))
+                    spawn_result = game.try_spawn_piece()
+                    if spawn_result[0]:
+                        game.player_piece = spawn_result[1]
                     else:
                         game.dead = True
                 else:
                     game.about_to_settle = True
             game.gravity_ts = time.time() + 1 / GRAVITY
+        drawing_manager.draw_text(vec(360, 70), 20, "SCORE")
+        drawing_manager.draw_text(vec(360, 90), 20, "{:06d}".format(game.score))
+        drawing_manager.draw_text(vec(360, 130), 20, "LEVEL")
+        drawing_manager.draw_text(vec(360, 150), 20, "{:02d}".format(game.level))
+        drawing_manager.draw_text(vec(360, 180), 20, "LINES")
+        drawing_manager.draw_text(vec(360, 210), 20, "{:02d}".format(game.lines))
 
     @staticmethod
     def event_handler():
