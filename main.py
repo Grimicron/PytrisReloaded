@@ -95,7 +95,7 @@ SCREEN = pygame.display.set_mode([SCREEN_SIZE.x, SCREEN_SIZE.y])
 GRAVITY = 2.0
 PRE_DAS_DELAY = 0.3
 DAS = 10.0
-LEVEL_THRESHHOLD = 10
+LEVEL_THRESHOLD = 10
 CLEAR_LINE_WAIT = 1 / GRAVITY
 LINES_REWARD = {
     0: 0,
@@ -116,8 +116,7 @@ COLORS = {
 BOX_LIGHT_PROPORTION = 0.15
 BOX_HIGHLIGHT_AMOUNT = 200
 BOX_SHADOW_AMOUNT = -80
-# FAST_MULTIPLIER cannot be one
-FAST_MULTIPLIER = 3.0
+FAST_SPEED = 20.0
 # Adding to the piece state rotates the piece clockwise
 O_PIECE = ([["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."],
             ["....", ".XX.", ".XX.", "...."], ["....", ".XX.", ".XX.", "...."]], "blue")
@@ -308,15 +307,14 @@ class game:
         lines_removed = dead_pieces.clear_lines()
         game.lines += lines_removed
         game.score += (game.level + 1) * 100 * LINES_REWARD[lines_removed]
-        if game.lines//LEVEL_THRESHHOLD > game.level:
+        if game.lines//LEVEL_THRESHOLD > game.level:
             game.level += 1
             global GRAVITY
             GRAVITY += 1
         game.das()
         game.player_piece.draw()
-        if time.time() > (game.gravity_ts - 
-                         (((FAST_MULTIPLIER-1) / (FAST_MULTIPLIER*GRAVITY)
-                         if game.fast else 0))):
+        if time.time() > ((game.gravity_ts - (1 / GRAVITY) + (1 / FAST_SPEED))
+                         if game.fast else game.gravity_ts):
             if game.can_move(game.player_piece.pos.add(vec(0, 1))
                               ,game.player_piece.get_state()):
                 game.player_piece.pos.y += 1
