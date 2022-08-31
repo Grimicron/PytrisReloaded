@@ -62,9 +62,9 @@ class drawing_manager:
                          pygame.Rect(BOARD_POS.x, BOARD_POS.y, 10 * BOX_SIZE,
                          20 * BOX_SIZE))
     @staticmethod
-    def draw_text(pos, size, text):
+    def draw_text(pos, size, color, text):
         font = pygame.font.Font('pixel.ttf', size)
-        text = font.render(text, True, (0, 0, 0), (255, 255, 255))
+        text = font.render(text, True, color, (255, 255, 255))
         textRect = text.get_rect()
         textRect.center = (pos.x, pos.y)
         SCREEN.blit(text, textRect)
@@ -330,12 +330,12 @@ class game:
                 else:
                     game.about_to_settle = True
             game.gravity_ts = time.time() + 1 / GRAVITY
-        drawing_manager.draw_text(vec(360, 70), 20, "SCORE")
-        drawing_manager.draw_text(vec(360, 90), 20, "{:06d}".format(game.score))
-        drawing_manager.draw_text(vec(360, 130), 20, "LEVEL")
-        drawing_manager.draw_text(vec(360, 150), 20, "{:02d}".format(game.level))
-        drawing_manager.draw_text(vec(360, 180), 20, "LINES")
-        drawing_manager.draw_text(vec(360, 210), 20, "{:02d}".format(game.lines))
+        drawing_manager.draw_text(vec(360, 70), 20, (0, 0, 0), "SCORE")
+        drawing_manager.draw_text(vec(360, 90), 20, (80, 80, 80), "{:06d}".format(game.score))
+        drawing_manager.draw_text(vec(360, 130), 20, (0, 0, 0), "LEVEL")
+        drawing_manager.draw_text(vec(360, 150), 20, (80, 80, 80), "{:02d}".format(game.level))
+        drawing_manager.draw_text(vec(360, 180), 20, (0, 0, 0), "LINES")
+        drawing_manager.draw_text(vec(360, 210), 20, (80, 80, 80), "{:02d}".format(game.lines))
 
     @staticmethod
     def event_handler():
